@@ -6,6 +6,10 @@ use std::{
     process::Command,
 };
 
+use crate::elf::Elf64Header;
+
+mod elf;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -23,70 +27,6 @@ fn main() {
     let return_code: u8 = text.replace("\n", "").parse().unwrap();
 
     let obj = [
-        0x7f,
-        0x45,
-        0x4c,
-        0x46,
-        0x2,
-        0x1,
-        0x1,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x1,
-        0x0,
-        0x3e,
-        0x0,
-        0x1,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x40,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x40,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x40,
-        0x0,
-        0x5,
-        0x0,
-        0x2,
-        0x0,
         0x0,
         0x0,
         0x0,
@@ -603,7 +543,9 @@ fn main() {
 
     let export_filepath = filepath.with_extension("o");
     let mut file = File::create(export_filepath.clone()).expect("Failed to create file");
-    file.write_all(&obj).expect("Failed to write file");
+
+    let bytes = [Elf64Header::template().as_u8_slice(), &obj].concat();
+    file.write_all(&bytes).expect("Failed to write file");
 
     let out = Command::new("ld")
         .args([
