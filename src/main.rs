@@ -45,6 +45,7 @@ fn main() {
 #[test]
 fn test() {
     let asm = "
+        ; this is a comment
         nop
         syscall
         ";

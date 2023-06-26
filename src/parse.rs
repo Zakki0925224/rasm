@@ -34,12 +34,10 @@ pub enum ParseError {
 }
 
 pub fn parse(line: &str) -> Result<Instruction, ParseError> {
+    let line = line.trim();
+
     if line.len() == 0 {
         return Err(ParseError::EmptyLine);
-    }
-
-    if line.chars().nth(0).unwrap() == ';' {
-        return Err(ParseError::CommentLine);
     }
 
     let mut opcode = None;
@@ -49,6 +47,10 @@ pub fn parse(line: &str) -> Result<Instruction, ParseError> {
     for (i, c) in line.chars().enumerate() {
         if c == ';' {
             // comment
+            if i == 0 {
+                return Err(ParseError::CommentLine);
+            }
+
             break;
         } else if c.is_ascii_alphabetic() {
             collecting_chars = true;
