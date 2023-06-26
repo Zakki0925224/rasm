@@ -1,12 +1,12 @@
 // opcodes
 const OP_SYSCALL: [u8; 2] = [0x0f, 0x05];
-const OP_MOV_RM32_IMM32: [u8; 2] = [0x48, 0xc7];
+//const OP_MOV_RM32_IMM32: [u8; 2] = [0x48, 0xc7];
 const OP_NOP: [u8; 1] = [0x90];
 
 #[derive(Debug)]
 pub enum Opcode {
     Syscall,
-    MovRm32Imm32, // copy imm32 to rm32
+    //MovRm32Imm32, // copy imm32 to rm32
     Nop,
 }
 
@@ -29,9 +29,19 @@ pub struct Instruction {
 #[derive(Debug)]
 pub enum ParseError {
     InvalidInstruction(String),
+    CommentLine,
+    EmptyLine,
 }
 
 pub fn parse(line: &str) -> Result<Instruction, ParseError> {
+    if line.len() == 0 {
+        return Err(ParseError::EmptyLine);
+    }
+
+    if line.chars().nth(0).unwrap() == ';' {
+        return Err(ParseError::CommentLine);
+    }
+
     let mut opcode = None;
 
     let mut chars_vec = Vec::new();

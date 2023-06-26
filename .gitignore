@@ -1,3 +1,2 @@
 /target
-*.o
-*.elf
+/test/*.*
