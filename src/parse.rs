@@ -1,17 +1,20 @@
 // opcodes
 const OP_SYSCALL: [u8; 2] = [0x0f, 0x05];
 const OP_MOV_RM32_IMM32: [u8; 2] = [0x48, 0xc7];
+const OP_NOP: [u8; 1] = [0x90];
 
 #[derive(Debug)]
 pub enum Opcode {
     Syscall,
     MovRm32Imm32, // copy imm32 to rm32
+    Nop,
 }
 
 impl Opcode {
     pub fn get_opcode(&self) -> Vec<u8> {
         return match self {
             Opcode::Syscall => OP_SYSCALL.to_vec(),
+            Opcode::Nop => OP_NOP.to_vec(),
             _ => unreachable!(),
         };
     }
@@ -37,24 +40,22 @@ pub fn parse(line: &str) -> Result<Instruction, ParseError> {
         if c == ';' {
             // comment
             break;
+        } else if c.is_ascii_alphabetic() {
+            collecting_chars = true;
+            chars_vec.push(c);
         } else {
-            if c == ' ' || c == '\t' {
-                collecting_chars = false;
-            } else if c.is_ascii_alphabetic() {
-                collecting_chars = true;
-                chars_vec.push(c);
-            }
+            collecting_chars = false;
         }
 
-        if !collecting_chars && chars_vec.len() > 0 {
+        if (!collecting_chars && chars_vec.len() > 0) || (collecting_chars && i == line.len() - 1) {
             let s: String = chars_vec.iter().collect();
 
             opcode = match &*s {
                 "syscall" => Some(Opcode::Syscall),
+                "nop" => Some(Opcode::Nop),
                 _ => None,
             };
 
-            //chars_vec.clear();
             break;
         }
     }
