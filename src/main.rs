@@ -122,6 +122,7 @@ fn main() {
     ];
 
     // string table is 16byte align
+    // TODO allows 13 chars only ex: "test/nop.nasm"
     let mut string_table = vec![0x0];
     string_table.extend(format!("{}\0", filepath.to_str().unwrap().replace("./", "")).as_bytes());
     string_table.extend("_start\0".as_bytes());
@@ -153,7 +154,7 @@ fn main() {
         &string_table,
     ]
     .concat();
-    println!("{:02x?}", bytes);
+    //println!("{:02x?}", bytes);
     file.write_all(&bytes).expect("Failed to write file");
 
     // link
