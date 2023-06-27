@@ -45,9 +45,13 @@ fn main() {
 #[test]
 fn test() {
     let asm = "
-        ; this is a comment
+        ; comment line
+        global _start
+        section .text
+        _start:
         nop
         syscall
+
         ";
 
     // rasm binary
