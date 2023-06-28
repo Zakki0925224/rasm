@@ -21,64 +21,66 @@ impl Opcode {
 }
 
 #[derive(Debug)]
-pub struct Instruction {
-    pub opcode: Option<Opcode>,
-    pub operands: Vec<u8>,
+pub enum Directive {
+    Global(Vec<String>),
+    Section(Vec<String>),
 }
 
 #[derive(Debug)]
-pub enum ParseError {
-    InvalidInstruction(String),
-    CommentLine,
-    EmptyLine,
+pub enum LineNode {
+    Invalid,
+    Empty,
+    Comment,
+    Instruction { opcode: Opcode, operands: Vec<u8> },
+    Directive(Directive),
+    Label(String),
 }
 
-pub fn parse(line: &str) -> Result<Instruction, ParseError> {
+pub fn parse(line: &str) -> LineNode {
     let line = line.trim();
 
     if line.len() == 0 {
-        return Err(ParseError::EmptyLine);
+        return LineNode::Empty;
     }
 
-    let mut opcode = None;
+    if line.chars().nth(0).unwrap() == ';' {
+        return LineNode::Comment;
+    }
 
-    let mut chars_vec = Vec::new();
-    let mut collecting_chars = false;
-    for (i, c) in line.chars().enumerate() {
-        if c == ';' {
-            // comment
-            if i == 0 {
-                return Err(ParseError::CommentLine);
+    // word splitted by space
+    let words: Vec<&str> = line.split(" ").collect();
+    match words[0] {
+        "global" | "section" => {
+            if words.len() == 1 {
+                return LineNode::Invalid;
             }
 
-            break;
-        } else if c.is_ascii_alphabetic() {
-            collecting_chars = true;
-            chars_vec.push(c);
-        } else {
-            collecting_chars = false;
-        }
-
-        if (!collecting_chars && chars_vec.len() > 0) || (collecting_chars && i == line.len() - 1) {
-            let s: String = chars_vec.iter().collect();
-
-            opcode = match &*s {
-                "syscall" => Some(Opcode::Syscall),
-                "nop" => Some(Opcode::Nop),
-                _ => None,
+            let symbols = (&words[1..])
+                .to_vec()
+                .iter()
+                .map(|w| w.to_string())
+                .collect();
+            let directive = match words[0] {
+                "global" => Directive::Global(symbols),
+                "section" => Directive::Section(symbols),
+                _ => unreachable!(),
             };
 
-            break;
+            return LineNode::Directive(directive);
+        }
+        w => {
+            if words.len() == 1 && w.chars().last().unwrap() == ':' {
+                return LineNode::Label(w.replace(":", ""));
+            }
+
+            // parse instructions
+            let (opcode, operands) = match w {
+                "nop" => (Opcode::Nop, vec![]),
+                "syscall" => (Opcode::Syscall, vec![]),
+                _ => return LineNode::Invalid,
+            };
+
+            return LineNode::Instruction { opcode, operands };
         }
     }
-
-    if opcode.is_none() {
-        let s: String = chars_vec.iter().collect();
-        return Err(ParseError::InvalidInstruction(s));
-    }
-
-    return Ok(Instruction {
-        opcode,
-        operands: Vec::new(),
-    });
 }

@@ -1,14 +1,6 @@
-use std::{
-    fs::File,
-    io::{Read, Write},
-    mem::size_of,
-    path::Path,
-};
+use std::{fs::File, io::*, mem::size_of, path::Path};
 
-use crate::{
-    elf::{Elf64Header, Elf64SectionHeader, Elf64SymbolTableSection},
-    parse,
-};
+use crate::{elf::*, parse::*};
 
 pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
     let mut text = String::new();
@@ -21,19 +13,16 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
     let mut text = Vec::new();
 
     for (i, line) in lines.iter().enumerate() {
-        match parse(*line) {
-            Ok(ins) => {
-                println!("line {}: \"{}\" => {:?}", i + 1, line, ins);
+        let node = parse(*line);
+        println!("line {}: \"{}\" => {:?}", i + 1, line, node);
 
-                if let Some(opcode) = ins.opcode {
-                    text.extend(opcode.get_opcode());
-                }
-            }
-            Err(err) => {
-                println!("line {}: \"{}\" => {:?}", i + 1, line, err);
-            }
-        };
+        match node {
+            LineNode::Instruction { opcode, operands } => text.extend(opcode.get_opcode()),
+            _ => (),
+        }
     }
+
+    panic!("breakpoint");
 
     let header = Elf64Header::template();
     let header_bytes = header.as_u8_slice();

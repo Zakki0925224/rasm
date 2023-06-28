@@ -1,12 +1,6 @@
-use std::{
-    env,
-    fs::File,
-    io::{Stdout, Write},
-    path::Path,
-    process::Command,
-};
+use std::{env, fs::File, io::*, path::Path, process::Command};
 
-use crate::{generator::gen_elf, parse::parse};
+use crate::generator::gen_elf;
 
 mod elf;
 mod generator;
@@ -51,7 +45,7 @@ fn test() {
         _start:
         nop
         syscall
-
+        aaaaa
         ";
 
     // rasm binary
