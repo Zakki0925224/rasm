@@ -45,7 +45,6 @@ fn test() {
         _start:
         nop
         syscall
-        aaaaa
         ";
 
     // rasm binary

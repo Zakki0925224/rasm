@@ -3,7 +3,7 @@ const OP_SYSCALL: [u8; 2] = [0x0f, 0x05];
 //const OP_MOV_RM32_IMM32: [u8; 2] = [0x48, 0xc7];
 const OP_NOP: [u8; 1] = [0x90];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Opcode {
     Syscall,
     //MovRm32Imm32, // copy imm32 to rm32
@@ -20,13 +20,13 @@ impl Opcode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Directive {
     Global(Vec<String>),
-    Section(Vec<String>),
+    Section(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LineNode {
     Invalid,
     Empty,
@@ -62,14 +62,14 @@ pub fn parse(line: &str) -> LineNode {
                 .collect();
             let directive = match words[0] {
                 "global" => Directive::Global(symbols),
-                "section" => Directive::Section(symbols),
+                "section" => Directive::Section(symbols[0].clone()),
                 _ => unreachable!(),
             };
 
             return LineNode::Directive(directive);
         }
         w => {
-            if words.len() == 1 && w.chars().last().unwrap() == ':' {
+            if words.len() == 1 && w.ends_with(':') {
                 return LineNode::Label(w.replace(":", ""));
             }
 
@@ -83,4 +83,51 @@ pub fn parse(line: &str) -> LineNode {
             return LineNode::Instruction { opcode, operands };
         }
     }
+}
+
+#[derive(Debug)]
+pub enum CheckErrorType {
+    InvalidInstruction,
+    InvalidSectionName,
+}
+
+#[derive(Debug)]
+pub enum CheckResult {
+    Ok,
+    Error {
+        at: usize,
+        error_type: CheckErrorType,
+    },
+}
+
+pub fn check_nodes(nodes: &Vec<LineNode>) -> CheckResult {
+    for (i, node) in nodes.iter().enumerate() {
+        match node {
+            LineNode::Empty | LineNode::Comment => continue,
+            LineNode::Invalid => {
+                return CheckResult::Error {
+                    at: i,
+                    error_type: CheckErrorType::InvalidInstruction,
+                };
+            }
+            LineNode::Directive(directive) => match directive {
+                Directive::Section(section_name) => {
+                    if !section_name.starts_with('.')
+                        || (section_name.starts_with('.') && section_name.len() == 1)
+                    {
+                        return CheckResult::Error {
+                            at: i,
+                            error_type: CheckErrorType::InvalidSectionName,
+                        };
+                    }
+                }
+                _ => (),
+            },
+            // LineNode::Instruction { opcode, operands } => todo!(),
+            // LineNode::Label(_) => todo!(),
+            _ => (),
+        }
+    }
+
+    return CheckResult::Ok;
 }

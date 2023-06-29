@@ -10,19 +10,108 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
         .expect("Failed to read strings");
 
     let lines: Vec<&str> = text.split("\n").collect();
+    let mut nodes = Vec::new();
     let mut text = Vec::new();
 
     for (i, line) in lines.iter().enumerate() {
         let node = parse(*line);
         println!("line {}: \"{}\" => {:?}", i + 1, line, node);
+        nodes.push(node);
+    }
 
-        match node {
-            LineNode::Instruction { opcode, operands } => text.extend(opcode.get_opcode()),
-            _ => (),
+    match check_nodes(&nodes) {
+        CheckResult::Ok => (),
+        CheckResult::Error { at, error_type } => {
+            println!(
+                "{}, line{}: \"{}\" is {:?}",
+                input_filepath.to_str().unwrap(),
+                at + 1,
+                lines[at],
+                error_type
+            );
+            panic!("Parse error");
         }
     }
 
-    panic!("breakpoint");
+    let mut exported_labels = Vec::new();
+
+    let mut section_with_label_with_instructions = Vec::new();
+    let mut current_section = None;
+
+    let mut label_with_instructions = Vec::new();
+
+    let mut current_label = None;
+    let mut nodes_in_current_label = Vec::new();
+
+    for node in nodes {
+        match node {
+            LineNode::Directive(directive) => match directive {
+                Directive::Global(targets) => exported_labels.extend(targets),
+                Directive::Section(section_name) => {
+                    label_with_instructions
+                        .push((current_label.clone(), nodes_in_current_label.to_vec()));
+                    nodes_in_current_label.clear();
+
+                    section_with_label_with_instructions
+                        .push((current_section, label_with_instructions.to_vec()));
+                    label_with_instructions.clear();
+
+                    current_section = Some(section_name);
+                }
+            },
+            LineNode::Label(label) => {
+                if nodes_in_current_label.len() > 0 {
+                    label_with_instructions.push((current_label, nodes_in_current_label.to_vec()));
+                    nodes_in_current_label.clear();
+                }
+
+                current_label = Some(label);
+            }
+            LineNode::Invalid => unreachable!(),
+            LineNode::Empty | LineNode::Comment => (),
+            node => {
+                nodes_in_current_label.push(node);
+            }
+        }
+    }
+
+    if nodes_in_current_label.len() > 0 {
+        label_with_instructions.push((current_label, nodes_in_current_label.to_vec()));
+    }
+
+    if label_with_instructions.len() > 0 {
+        section_with_label_with_instructions
+            .push((current_section, label_with_instructions.to_vec()));
+    }
+
+    println!("{:?}", section_with_label_with_instructions);
+
+    for (section, label_with_instructions) in section_with_label_with_instructions {
+        if let Some(section) = section {
+            if section != ".text" {
+                panic!("Unsupported section");
+            }
+        } else {
+            continue;
+        }
+
+        for (label, instructions) in label_with_instructions {
+            if let Some(label) = label {
+                if label.eq("_start") {
+                    for node in instructions {
+                        match node {
+                            LineNode::Instruction { opcode, operands } => {
+                                text.extend(opcode.get_opcode());
+                            }
+                            _ => (),
+                        }
+                    }
+                } else {
+                    panic!("Unsupported label");
+                }
+            }
+        }
+    }
 
     let header = Elf64Header::template();
     let header_bytes = header.as_u8_slice();
