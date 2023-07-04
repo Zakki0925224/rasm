@@ -33,7 +33,7 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
         }
     }
 
-    let mut exported_labels = Vec::new();
+    let mut global_labels = Vec::new();
 
     let mut section_with_label_with_instructions = Vec::new();
     let mut current_section = None;
@@ -46,7 +46,7 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
     for node in nodes {
         match node {
             LineNode::Directive(directive) => match directive {
-                Directive::Global(targets) => exported_labels.extend(targets),
+                Directive::Global(targets) => global_labels.extend(targets),
                 Directive::Section(section_name) => {
                     label_with_instructions
                         .push((current_label.clone(), nodes_in_current_label.to_vec()));
@@ -86,7 +86,26 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
 
     println!("{:?}", section_with_label_with_instructions);
 
-    for (section, label_with_instructions) in section_with_label_with_instructions {
+    for global_label in global_labels.iter() {
+        let mut found = false;
+
+        'outer: for (_, label_with_instructions) in section_with_label_with_instructions.iter() {
+            for (label, _) in label_with_instructions {
+                if let Some(label) = label {
+                    if label.eq(global_label) {
+                        found = true;
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        if !found {
+            panic!("Global label \"{}\" was not defined", global_label);
+        }
+    }
+
+    for (section, label_with_instructions) in section_with_label_with_instructions.iter() {
         if let Some(section) = section {
             if section != ".text" {
                 panic!("Unsupported section");
@@ -95,7 +114,7 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
             continue;
         }
 
-        for (label, instructions) in label_with_instructions {
+        for (label, instructions) in label_with_instructions.iter() {
             if let Some(label) = label {
                 if label.eq("_start") {
                     for node in instructions {
