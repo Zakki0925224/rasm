@@ -21,30 +21,36 @@ impl Opcode {
 }
 
 #[derive(Debug, Clone)]
+pub struct Instruction {
+    pub opcode: Opcode,
+    pub operands: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Directive {
     Global(Vec<String>),
     Section(String),
 }
 
 #[derive(Debug, Clone)]
-pub enum LineNode {
+pub enum LineToken {
     Invalid,
     Empty,
     Comment,
-    Instruction { opcode: Opcode, operands: Vec<u8> },
+    Instruction(Instruction),
     Directive(Directive),
     Label(String),
 }
 
-pub fn parse(line: &str) -> LineNode {
+pub fn parse(line: &str) -> LineToken {
     let line = line.trim();
 
     if line.len() == 0 {
-        return LineNode::Empty;
+        return LineToken::Empty;
     }
 
     if line.chars().nth(0).unwrap() == ';' {
-        return LineNode::Comment;
+        return LineToken::Comment;
     }
 
     // word splitted by space
@@ -52,7 +58,7 @@ pub fn parse(line: &str) -> LineNode {
     match words[0] {
         "global" | "section" => {
             if words.len() == 1 {
-                return LineNode::Invalid;
+                return LineToken::Invalid;
             }
 
             let symbols = (&words[1..])
@@ -66,21 +72,21 @@ pub fn parse(line: &str) -> LineNode {
                 _ => unreachable!(),
             };
 
-            return LineNode::Directive(directive);
+            return LineToken::Directive(directive);
         }
         w => {
             if words.len() == 1 && w.ends_with(':') {
-                return LineNode::Label(w.replace(":", ""));
+                return LineToken::Label(w.replace(":", ""));
             }
 
             // parse instructions
             let (opcode, operands) = match w {
                 "nop" => (Opcode::Nop, vec![]),
                 "syscall" => (Opcode::Syscall, vec![]),
-                _ => return LineNode::Invalid,
+                _ => return LineToken::Invalid,
             };
 
-            return LineNode::Instruction { opcode, operands };
+            return LineToken::Instruction(Instruction { opcode, operands });
         }
     }
 }
@@ -100,17 +106,17 @@ pub enum CheckResult {
     },
 }
 
-pub fn check_nodes(nodes: &Vec<LineNode>) -> CheckResult {
-    for (i, node) in nodes.iter().enumerate() {
-        match node {
-            LineNode::Empty | LineNode::Comment => continue,
-            LineNode::Invalid => {
+pub fn check_tokens(tokens: &Vec<LineToken>) -> CheckResult {
+    for (i, token) in tokens.iter().enumerate() {
+        match token {
+            LineToken::Empty | LineToken::Comment => continue,
+            LineToken::Invalid => {
                 return CheckResult::Error {
                     at: i,
                     error_type: CheckErrorType::InvalidInstruction,
                 };
             }
-            LineNode::Directive(directive) => match directive {
+            LineToken::Directive(directive) => match directive {
                 Directive::Section(section_name) => {
                     if !section_name.starts_with('.')
                         || (section_name.starts_with('.') && section_name.len() == 1)
@@ -123,8 +129,8 @@ pub fn check_nodes(nodes: &Vec<LineNode>) -> CheckResult {
                 }
                 _ => (),
             },
-            // LineNode::Instruction { opcode, operands } => todo!(),
-            // LineNode::Label(_) => todo!(),
+            // LineToken::Instruction { opcode, operands } => todo!(),
+            // LineToken::Label(_) => todo!(),
             _ => (),
         }
     }

@@ -1,6 +1,6 @@
 use std::{fs::File, io::*, mem::size_of, path::Path};
 
-use crate::{elf::*, parse::*};
+use crate::{elf::*, node::SectionNode, parse::*};
 
 pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
     let mut text = String::new();
@@ -10,16 +10,16 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
         .expect("Failed to read strings");
 
     let lines: Vec<&str> = text.split("\n").collect();
-    let mut nodes = Vec::new();
+    let mut tokens = Vec::new();
     let mut text = Vec::new();
 
     for (i, line) in lines.iter().enumerate() {
-        let node = parse(*line);
-        println!("line {}: \"{}\" => {:?}", i + 1, line, node);
-        nodes.push(node);
+        let token = parse(*line);
+        println!("line {}: \"{}\" => {:?}", i + 1, line, token);
+        tokens.push(token);
     }
 
-    match check_nodes(&nodes) {
+    match check_tokens(&tokens) {
         CheckResult::Ok => (),
         CheckResult::Error { at, error_type } => {
             println!(
@@ -33,107 +33,97 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
         }
     }
 
-    let mut global_labels = Vec::new();
+    let mut section_nodes = Vec::new();
+    let mut text_section_node = SectionNode::new(".text".to_string());
+    let mut current_section_node: Option<SectionNode> = None;
+    let mut current_label_with_instructions: Option<(String, Vec<Instruction>)> = None;
 
-    let mut section_with_label_with_instructions = Vec::new();
-    let mut current_section = None;
-
-    let mut label_with_instructions = Vec::new();
-
-    let mut current_label = None;
-    let mut nodes_in_current_label = Vec::new();
-
-    for node in nodes {
-        match node {
-            LineNode::Directive(directive) => match directive {
-                Directive::Global(targets) => global_labels.extend(targets),
+    for (_, token) in tokens.iter().enumerate() {
+        match token {
+            LineToken::Invalid => unreachable!(), // have to paniced at token checker
+            LineToken::Empty => continue,
+            LineToken::Comment => continue,
+            LineToken::Instruction(ins) => {
+                if let Some((_, ref mut instructions)) = current_label_with_instructions {
+                    instructions.push(ins.clone());
+                } else {
+                    if let Some(ref mut section_node) = current_section_node {
+                        section_node.default_instructions.push(ins.clone());
+                    } else {
+                        text_section_node.default_instructions.push(ins.clone());
+                    }
+                }
+            }
+            LineToken::Directive(dir) => match dir {
+                Directive::Global(labels) => {
+                    if let Some(ref mut section_node) = current_section_node {
+                        section_node.global_labels.extend(labels.clone());
+                    } else {
+                        text_section_node.global_labels.extend(labels.clone());
+                    }
+                }
                 Directive::Section(section_name) => {
-                    label_with_instructions
-                        .push((current_label.clone(), nodes_in_current_label.to_vec()));
-                    nodes_in_current_label.clear();
+                    if let Some(ref section_node) = current_section_node {
+                        section_nodes.push(section_node.clone());
+                    }
 
-                    section_with_label_with_instructions
-                        .push((current_section, label_with_instructions.to_vec()));
-                    label_with_instructions.clear();
-
-                    current_section = Some(section_name);
+                    if !section_name.eq(".text") {
+                        current_section_node = Some(SectionNode::new(section_name.clone()));
+                    }
                 }
             },
-            LineNode::Label(label) => {
-                if nodes_in_current_label.len() > 0 {
-                    label_with_instructions.push((current_label, nodes_in_current_label.to_vec()));
-                    nodes_in_current_label.clear();
-                }
-
-                current_label = Some(label);
-            }
-            LineNode::Invalid => unreachable!(),
-            LineNode::Empty | LineNode::Comment => (),
-            node => {
-                nodes_in_current_label.push(node);
-            }
-        }
-    }
-
-    if nodes_in_current_label.len() > 0 {
-        label_with_instructions.push((current_label, nodes_in_current_label.to_vec()));
-    }
-
-    if label_with_instructions.len() > 0 {
-        section_with_label_with_instructions
-            .push((current_section, label_with_instructions.to_vec()));
-    }
-
-    println!("{:?}", section_with_label_with_instructions);
-
-    for global_label in global_labels.iter() {
-        let mut found = false;
-
-        'outer: for (_, label_with_instructions) in section_with_label_with_instructions.iter() {
-            for (label, _) in label_with_instructions {
-                if let Some(label) = label {
-                    if label.eq(global_label) {
-                        found = true;
-                        break 'outer;
-                    }
-                }
-            }
-        }
-
-        if !found {
-            panic!("Global label \"{}\" was not defined", global_label);
-        }
-    }
-
-    for (section, label_with_instructions) in section_with_label_with_instructions.iter() {
-        if let Some(section) = section {
-            if section != ".text" {
-                panic!("Unsupported section");
-            }
-        } else {
-            continue;
-        }
-
-        for (label, instructions) in label_with_instructions.iter() {
-            if let Some(label) = label {
-                if label.eq("_start") {
-                    for node in instructions {
-                        match node {
-                            LineNode::Instruction { opcode, operands } => {
-                                text.extend(opcode.get_opcode());
-                            }
-                            _ => (),
+            LineToken::Label(label) => {
+                if let Some((ref current_label, ref instructions)) = current_label_with_instructions
+                {
+                    if !label.eq(current_label) {
+                        if let Some(ref mut section_node) = current_section_node {
+                            section_node
+                                .labeled_instructions
+                                .push((current_label.clone(), instructions.clone()));
+                        } else {
+                            text_section_node
+                                .labeled_instructions
+                                .push((current_label.clone(), instructions.clone()));
                         }
                     }
-                } else {
-                    panic!("Unsupported label");
                 }
+
+                current_label_with_instructions = Some((label.clone(), Vec::new()));
             }
         }
     }
+
+    if current_label_with_instructions.is_some() {
+        if let Some(ref mut section_node) = current_section_node {
+            section_node
+                .labeled_instructions
+                .push(current_label_with_instructions.unwrap());
+        } else {
+            text_section_node
+                .labeled_instructions
+                .push(current_label_with_instructions.unwrap());
+        }
+    }
+
+    if current_section_node.is_some() {
+        section_nodes.push(current_section_node.unwrap());
+    }
+
+    section_nodes.push(text_section_node);
+    println!("{:?}", section_nodes);
 
     let header = Elf64Header::template();
     let header_bytes = header.as_u8_slice();
+
+    // extend instructions in text section
+    for section_node in section_nodes.iter() {
+        if section_node.name.eq(".text") {
+            // TODO: labeled instructions
+            for ins in section_node.default_instructions.iter() {
+                text.extend(ins.opcode.get_opcode());
+            }
+        }
+    }
 
     // .text is 16byte align
     let text_len = text.len();

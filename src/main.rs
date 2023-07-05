@@ -4,6 +4,7 @@ use crate::generator::gen_elf;
 
 mod elf;
 mod generator;
+mod node;
 mod parse;
 
 fn main() {
@@ -40,9 +41,9 @@ fn main() {
 fn test() {
     let asm = "
         ; comment line
-        global _start
-        section .text
-        _start:
+        ;section .hoge
+        ;global _start
+        ;_start:
         nop
         syscall
         ";
