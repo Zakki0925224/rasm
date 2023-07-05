@@ -150,15 +150,18 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
     }
 
     let null_section = Elf64SymbolTableSection::default();
-    let section_1 = Elf64SymbolTableSection::new(1, 4, 0, 65521, 0, 0);
-    let section_2 = Elf64SymbolTableSection::new(0, 3, 0, 1, 0, 0);
-    let section_3 = Elf64SymbolTableSection::new(17, 16, 0, 1, 0, 0);
+    // type: file, ./test/test.asm
+    let symbol_section_1 = Elf64SymbolTableSection::new(1, 4, 0, 65521, 0, 0);
+    // type: section, .text
+    let symbol_section_2 = Elf64SymbolTableSection::new(0, 3, 0, 1, 0, 0);
+    // type: notype, _start
+    let symbol_section_3 = Elf64SymbolTableSection::new(17, 16, 0, 1, 0, 0);
 
     let symbol_table = [
         null_section.as_u8_slice(),
-        section_1.as_u8_slice(),
-        section_2.as_u8_slice(),
-        section_3.as_u8_slice(),
+        symbol_section_1.as_u8_slice(),
+        symbol_section_2.as_u8_slice(),
+        symbol_section_3.as_u8_slice(),
     ]
     .concat();
 
