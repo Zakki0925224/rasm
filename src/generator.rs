@@ -35,6 +35,7 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
 
     let mut section_nodes = Vec::new();
     let mut text_section_node = SectionNode::new(".text".to_string());
+    text_section_node.global_labels.push("_start".to_string());
     let mut current_section_node: Option<SectionNode> = None;
     let mut current_label_with_instructions: Option<(String, Vec<Instruction>)> = None;
 
@@ -57,60 +58,49 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
             LineToken::Directive(dir) => match dir {
                 Directive::Global(labels) => {
                     if let Some(ref mut section_node) = current_section_node {
-                        section_node.global_labels.extend(labels.clone());
+                        push_global_labels(labels, section_node);
                     } else {
-                        text_section_node.global_labels.extend(labels.clone());
+                        push_global_labels(labels, &mut text_section_node);
                     }
                 }
                 Directive::Section(section_name) => {
-                    if let Some(ref section_node) = current_section_node {
-                        section_nodes.push(section_node.clone());
-                    }
+                    puah_current_label_with_instructions(
+                        &mut current_label_with_instructions,
+                        &mut current_section_node,
+                        &mut text_section_node,
+                    );
 
                     if !section_name.eq(".text") {
                         current_section_node = Some(SectionNode::new(section_name.clone()));
+                    } else {
+                        current_section_node = None;
                     }
                 }
             },
             LineToken::Label(label) => {
-                if let Some((ref current_label, ref instructions)) = current_label_with_instructions
-                {
-                    if !label.eq(current_label) {
-                        if let Some(ref mut section_node) = current_section_node {
-                            section_node
-                                .labeled_instructions
-                                .push((current_label.clone(), instructions.clone()));
-                        } else {
-                            text_section_node
-                                .labeled_instructions
-                                .push((current_label.clone(), instructions.clone()));
-                        }
-                    }
-                }
+                puah_current_label_with_instructions(
+                    &mut current_label_with_instructions,
+                    &mut current_section_node,
+                    &mut text_section_node,
+                );
 
                 current_label_with_instructions = Some((label.clone(), Vec::new()));
             }
         }
     }
 
-    if current_label_with_instructions.is_some() {
-        if let Some(ref mut section_node) = current_section_node {
-            section_node
-                .labeled_instructions
-                .push(current_label_with_instructions.unwrap());
-        } else {
-            text_section_node
-                .labeled_instructions
-                .push(current_label_with_instructions.unwrap());
-        }
-    }
+    puah_current_label_with_instructions(
+        &mut current_label_with_instructions,
+        &mut current_section_node,
+        &mut text_section_node,
+    );
 
     if current_section_node.is_some() {
         section_nodes.push(current_section_node.unwrap());
     }
 
     section_nodes.push(text_section_node);
-    println!("{:?}", section_nodes);
+    println!("{:#?}", section_nodes);
 
     let header = Elf64Header::template();
     let header_bytes = header.as_u8_slice();
@@ -240,4 +230,54 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
     file.write_all(&bytes).expect("Failed to write file");
 
     return file;
+}
+
+fn push_global_labels(labels: &Vec<String>, section_node: &mut SectionNode) {
+    for label in labels {
+        let mut is_found = false;
+        for global_label in section_node.global_labels.iter() {
+            if label.eq(global_label) {
+                is_found = true;
+                break;
+            }
+        }
+
+        if !is_found {
+            section_node.global_labels.push(label.clone());
+        }
+    }
+}
+
+fn push_labeled_instructions(
+    label: &String,
+    instructions: &Vec<Instruction>,
+    section_node: &mut SectionNode,
+) {
+    if let Some((_, ins)) = section_node
+        .labeled_instructions
+        .iter_mut()
+        .find(|(l, _)| label.eq(l))
+    {
+        ins.extend(instructions.clone());
+    } else {
+        section_node
+            .labeled_instructions
+            .push((label.clone(), instructions.clone()));
+    }
+}
+
+fn puah_current_label_with_instructions(
+    current_label_with_instructions: &mut Option<(String, Vec<Instruction>)>,
+    current_section_node: &mut Option<SectionNode>,
+    text_section_node: &mut SectionNode,
+) {
+    if let Some((ref current_label, ref instructions)) = current_label_with_instructions {
+        if let Some(ref mut section_node) = current_section_node {
+            push_labeled_instructions(current_label, instructions, section_node);
+        } else {
+            push_labeled_instructions(current_label, instructions, text_section_node);
+        }
+    }
+
+    *current_label_with_instructions = None;
 }

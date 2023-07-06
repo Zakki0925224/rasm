@@ -40,12 +40,27 @@ fn main() {
 #[test]
 fn test() {
     let asm = "
-        ; comment line
-        ;section .hoge
         ;global _start
-        ;_start:
-        nop
-        syscall
+
+        test:
+            syscall
+            syscall
+            syscall
+
+        _start:
+            nop
+            nop
+            nop
+
+        test:
+            nop
+            nop
+            nop
+
+        _start:
+            syscall
+            syscall
+            syscall
         ";
 
     // rasm binary
