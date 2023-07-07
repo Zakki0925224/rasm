@@ -4,28 +4,28 @@ use std::{mem::size_of, slice::from_raw_parts};
 pub const MAGIC_NUMS: [u8; 4] = [0x7f, 0x45, 0x4c, 0x46];
 
 #[derive(Debug)]
-#[repr(C)]
+#[repr(C, align(16))]
 pub struct Elf64Header {
-    pub magic_nums: [u8; 4],
-    pub class: u8,
-    pub endian: u8,
-    pub version: u8,
-    pub abi: u8,
-    pub abi_version: u8,
+    magic_nums: [u8; 4],
+    class: u8,
+    endian: u8,
+    version: u8,
+    abi: u8,
+    abi_version: u8,
     reserved: [u8; 7],
-    pub object_type: [u8; 2],
-    pub machine_type: [u8; 2],
-    pub version2: [u8; 4],
-    pub entry: [u8; 8],
-    pub program_header_offset: [u8; 8],
-    pub section_header_offset: [u8; 8],
-    pub flags: [u8; 4],
-    pub header_size: [u8; 2],
-    pub program_header_size: [u8; 2],
-    pub program_header_num: [u8; 2],
-    pub section_header_size: [u8; 2],
-    pub section_header_num: [u8; 2],
-    pub section_header_str_index: [u8; 2],
+    object_type: [u8; 2],
+    machine_type: [u8; 2],
+    version2: [u8; 4],
+    entry: [u8; 8],
+    program_header_offset: [u8; 8],
+    section_header_offset: [u8; 8],
+    flags: [u8; 4],
+    header_size: [u8; 2],
+    program_header_size: [u8; 2],
+    program_header_num: [u8; 2],
+    section_header_size: [u8; 2],
+    section_header_num: [u8; 2],
+    section_header_str_index: [u8; 2],
 }
 
 impl Elf64Header {
@@ -57,10 +57,30 @@ impl Elf64Header {
     pub fn as_u8_slice(&self) -> &[u8] {
         return unsafe { from_raw_parts((self as *const Self) as *const u8, size_of::<Self>()) };
     }
+
+    pub fn section_header_size(&self) -> u16 {
+        return LittleEndian::read_u16(&self.section_header_size);
+    }
+
+    pub fn set_section_header_size(&mut self, section_header_size: u16) {
+        let mut buf = [0; 2];
+        LittleEndian::write_u16(&mut buf, section_header_size);
+        self.section_header_size = buf;
+    }
+
+    pub fn section_header_num(&self) -> u16 {
+        return LittleEndian::read_u16(&self.section_header_num);
+    }
+
+    pub fn set_section_header_num(&mut self, section_header_num: u16) {
+        let mut buf = [0; 2];
+        LittleEndian::write_u16(&mut buf, section_header_num);
+        self.section_header_num = buf;
+    }
 }
 
 #[derive(Debug)]
-#[repr(C)]
+#[repr(C, align(16))]
 pub struct Elf64SectionHeader {
     name: [u8; 4],
     s_type: [u8; 4],
@@ -111,9 +131,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_name(&mut self, name: u32) {
-        let mut name_buf = [0; 4];
-        LittleEndian::write_u32(&mut name_buf, name);
-        self.name = name_buf;
+        let mut buf = [0; 4];
+        LittleEndian::write_u32(&mut buf, name);
+        self.name = buf;
     }
 
     pub fn s_type(&self) -> u32 {
@@ -121,9 +141,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_s_type(&mut self, s_type: u32) {
-        let mut s_type_buf = [0; 4];
-        LittleEndian::write_u32(&mut s_type_buf, s_type);
-        self.s_type = s_type_buf;
+        let mut buf = [0; 4];
+        LittleEndian::write_u32(&mut buf, s_type);
+        self.s_type = buf;
     }
 
     pub fn flags(&self) -> u64 {
@@ -131,9 +151,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_flags(&mut self, flags: u64) {
-        let mut flags_buf = [0; 8];
-        LittleEndian::write_u64(&mut flags_buf, flags);
-        self.flags = flags_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, flags);
+        self.flags = buf;
     }
 
     pub fn addr(&self) -> u64 {
@@ -141,9 +161,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_addr(&mut self, addr: u64) {
-        let mut addr_buf = [0; 8];
-        LittleEndian::write_u64(&mut addr_buf, addr);
-        self.addr = addr_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, addr);
+        self.addr = buf;
     }
 
     pub fn offset(&self) -> u64 {
@@ -151,9 +171,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_offset(&mut self, offset: u64) {
-        let mut offset_buf = [0; 8];
-        LittleEndian::write_u64(&mut offset_buf, offset);
-        self.offset = offset_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, offset);
+        self.offset = buf;
     }
 
     pub fn size(&self) -> u64 {
@@ -161,9 +181,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_size(&mut self, size: u64) {
-        let mut size_buf = [0; 8];
-        LittleEndian::write_u64(&mut size_buf, size);
-        self.size = size_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, size);
+        self.size = buf;
     }
 
     pub fn link(&self) -> u32 {
@@ -171,9 +191,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_link(&mut self, link: u32) {
-        let mut link_buf = [0; 4];
-        LittleEndian::write_u32(&mut link_buf, link);
-        self.link = link_buf;
+        let mut buf = [0; 4];
+        LittleEndian::write_u32(&mut buf, link);
+        self.link = buf;
     }
 
     pub fn info(&self) -> u32 {
@@ -181,9 +201,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_info(&mut self, info: u32) {
-        let mut info_buf = [0; 4];
-        LittleEndian::write_u32(&mut info_buf, info);
-        self.info = info_buf;
+        let mut buf = [0; 4];
+        LittleEndian::write_u32(&mut buf, info);
+        self.info = buf;
     }
 
     pub fn align(&self) -> u64 {
@@ -191,9 +211,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_align(&mut self, align: u64) {
-        let mut align_buf = [0; 8];
-        LittleEndian::write_u64(&mut align_buf, align);
-        self.align = align_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, align);
+        self.align = buf;
     }
 
     pub fn entry_size(&self) -> u64 {
@@ -201,9 +221,9 @@ impl Elf64SectionHeader {
     }
 
     pub fn set_entry_size(&mut self, entry_size: u64) {
-        let mut entry_size_buf = [0; 8];
-        LittleEndian::write_u64(&mut entry_size_buf, entry_size);
-        self.entry_size = entry_size_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, entry_size);
+        self.entry_size = buf;
     }
 }
 
@@ -225,7 +245,7 @@ impl Default for Elf64SectionHeader {
 }
 
 #[derive(Debug)]
-#[repr(C)]
+#[repr(C, align(16))]
 pub struct Elf64SymbolTableSection {
     name: [u8; 4],
     info: u8,
@@ -257,9 +277,9 @@ impl Elf64SymbolTableSection {
     }
 
     pub fn set_name(&mut self, name: u32) {
-        let mut name_buf = [0; 4];
-        LittleEndian::write_u32(&mut name_buf, name);
-        self.name = name_buf;
+        let mut buf = [0; 4];
+        LittleEndian::write_u32(&mut buf, name);
+        self.name = buf;
     }
 
     pub fn info(&self) -> u8 {
@@ -283,9 +303,9 @@ impl Elf64SymbolTableSection {
     }
 
     pub fn set_index(&mut self, index: u16) {
-        let mut index_buf = [0; 2];
-        LittleEndian::write_u16(&mut index_buf, index);
-        self.index = index_buf;
+        let mut buf = [0; 2];
+        LittleEndian::write_u16(&mut buf, index);
+        self.index = buf;
     }
 
     pub fn value(&self) -> u64 {
@@ -293,9 +313,9 @@ impl Elf64SymbolTableSection {
     }
 
     pub fn set_value(&mut self, value: u64) {
-        let mut value_buf = [0; 8];
-        LittleEndian::write_u64(&mut value_buf, value);
-        self.value = value_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, value);
+        self.value = buf;
     }
 
     pub fn size(&self) -> u64 {
@@ -303,9 +323,9 @@ impl Elf64SymbolTableSection {
     }
 
     pub fn set_size(&mut self, size: u64) {
-        let mut size_buf = [0; 8];
-        LittleEndian::write_u64(&mut size_buf, size);
-        self.size = size_buf;
+        let mut buf = [0; 8];
+        LittleEndian::write_u64(&mut buf, size);
+        self.size = buf;
     }
 }
 

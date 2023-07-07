@@ -8,3 +8,12 @@ _start:
     mov rdi, 1  ; return code
     syscall  ; system call op code
 
+section .hoge
+
+huga:
+    syscall
+
+hoho:
+    nop
+    nop
+    nop

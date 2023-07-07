@@ -4,25 +4,24 @@ const OP_SYSCALL: [u8; 2] = [0x0f, 0x05];
 const OP_NOP: [u8; 1] = [0x90];
 
 #[derive(Debug, Clone)]
-pub enum Opcode {
+pub enum Mnemonic {
     Syscall,
     //MovRm32Imm32, // copy imm32 to rm32
     Nop,
 }
 
-impl Opcode {
+impl Mnemonic {
     pub fn get_opcode(&self) -> Vec<u8> {
         return match self {
-            Opcode::Syscall => OP_SYSCALL.to_vec(),
-            Opcode::Nop => OP_NOP.to_vec(),
-            _ => unreachable!(),
+            Mnemonic::Syscall => OP_SYSCALL.to_vec(),
+            Mnemonic::Nop => OP_NOP.to_vec(),
         };
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Instruction {
-    pub opcode: Opcode,
+    pub mnemonic: Mnemonic,
     pub operands: Vec<u8>,
 }
 
@@ -80,13 +79,13 @@ pub fn parse(line: &str) -> LineToken {
             }
 
             // parse instructions
-            let (opcode, operands) = match w {
-                "nop" => (Opcode::Nop, vec![]),
-                "syscall" => (Opcode::Syscall, vec![]),
+            let (mnemonic, operands) = match w {
+                "nop" => (Mnemonic::Nop, vec![]),
+                "syscall" => (Mnemonic::Syscall, vec![]),
                 _ => return LineToken::Invalid,
             };
 
-            return LineToken::Instruction(Instruction { opcode, operands });
+            return LineToken::Instruction(Instruction { mnemonic, operands });
         }
     }
 }

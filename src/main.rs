@@ -40,28 +40,26 @@ fn main() {
 #[test]
 fn test() {
     let asm = "
-        ;global _start
+        global _start
 
-        test:
-            syscall
-            syscall
-            syscall
-
-        _start:
-            nop
-            nop
-            nop
-
-        test:
-            nop
-            nop
-            nop
+        section .text
 
         _start:
             syscall
             syscall
             syscall
-        ";
+
+        section .hoge
+
+        huga:
+            syscall
+
+        hoho:
+            nop
+            nop
+            nop
+
+    ";
 
     // rasm binary
     let input_filepath = Path::new("./test/test.asm");
