@@ -77,6 +77,16 @@ impl Elf64Header {
         LittleEndian::write_u16(&mut buf, section_header_num);
         self.section_header_num = buf;
     }
+
+    pub fn section_header_str_index(&self) -> u16 {
+        return LittleEndian::read_u16(&self.section_header_str_index);
+    }
+
+    pub fn set_section_header_str_index(&mut self, section_header_str_index: u16) {
+        let mut buf = [0; 2];
+        LittleEndian::write_u16(&mut buf, section_header_str_index);
+        self.section_header_str_index = buf;
+    }
 }
 
 #[derive(Debug)]

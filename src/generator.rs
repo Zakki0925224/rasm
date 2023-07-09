@@ -231,6 +231,7 @@ pub fn gen_elf(input_filepath: &Path, output_filepath: &Path) -> File {
     section_headers.push(strtab_section);
 
     header.set_section_header_num(section_headers.len() as u16);
+    header.set_section_header_str_index(3);
 
     bytes.extend(header.as_u8_slice());
 
